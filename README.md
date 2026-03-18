@@ -5,20 +5,28 @@ An end-to-end data platform that ingests Brazilian public APIs and builds analyt
 
 ## 🎯 Project Overview
 
-This project demonstrates a complete data engineering workflow:
+This project demonstrates a complete data engineering workflow following the medallion architecture pattern:
 - **Data Ingestion**: Brazilian market APIs (Alpha Vantage, BRAPI, Banco Central)
-- **Data Warehouse**: PostgreSQL with structured schema (Bronze/Silver/Gold)
+- **Data Warehouse**: PostgreSQL with structured layered schema (Bronze/Silver/Gold)
 - **Data Transformation**: dbt for building analytics-ready datasets
 - **Orchestration**: Python-based pipelines with data quality checks
 
 ## 🏗️ Architecture
 
 ```
-APIs → Python Ingestion → PostgreSQL (Bronze) → dbt (Silver/Gold)
+APIs → Python Ingestion → PostgreSQL (Bronze) → dbt Transformations (Silver/Gold) → Analytics
 ```
 
+### Medallion Layer Architecture
+
+The platform follows a three-tier medallion architecture:
+
+- **Bronze Layer**: Raw, unmodified data ingested directly from APIs. Serves as a single source of truth for all raw data with minimal transformations.
+- **Silver Layer**: Cleaned, deduplicated, and standardized datasets. Data quality checks are applied, null values handled, and business logic begins to emerge.
+- **Gold Layer**: Analytics-ready, aggregated datasets optimized for reporting and business intelligence. Contains calculated metrics, business dimensions, and KPIs ready for consumption.
+
 ### Tech Stack
-- **Languages**: Python 3.13+, SQL
+- **Languages**: Python 3.12+, SQL
 - **Data Processing**: dbt-core 1.11.7, dbt-postgres
 - **Database**: PostgreSQL 16
 - **Data Formats**: Pandas, DuckDB, SQLAlchemy
@@ -36,8 +44,8 @@ finance-data-platform/
 ├── dbt_project/        # dbt transformation layer
 │   ├── models/
 │   │   ├── bronze/     # Raw data models
-│   │   ├── silver/     # Cleaned datasets
-│   │   └── gold/       # Business-ready tables
+│   │   ├── silver/     # Cleaned & standardized datasets
+│   │   └── gold/       # Business-ready analytics tables
 │   ├── tests/          # Data quality tests
 │   └── macros/         # Custom dbt functions
 ├── docker-compose.yml  # PostgreSQL + volume setup
@@ -47,7 +55,7 @@ finance-data-platform/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.13+
+- Python 3.12+
 - Docker & Docker Compose
 - uv (or pip)
 
@@ -67,26 +75,52 @@ docker-compose up -d
 
 ```bash
 # Execute ingestion
-python ingestion/pipeline.py
+python main.py
 
 # Run dbt transformations
 cd dbt_project
 dbt run
 dbt test
+
+# Generate & serve documentation
+python build.py
 ```
 
 ## 📊 Data Models
 
 ### Bronze Layer
-- `bronze_alphavantage__stock_prices_daily`: Raw stock data
-- `bronze__symbol_countries`: Symbol metadata
+Raw data ingested directly from APIs with minimal transformation. Acts as a data lakehouse for all source systems.
+
+- `bronze_alphavantage__stock_prices_daily`: Raw stock price data (OHLCV data)
+- `bronze_brapi__stock_prices_daily`: Brazilian stock prices from BRAPI
+- `bronze__symbol_countries`: Raw symbol metadata and mappings
+
+**Purpose**: Immutable historical record; enables audit trail and data recovery.
 
 ### Silver Layer
-- `silver_alphavantage__stock_prices_daily`: Cleaned, deduplicated prices
-- `silver_symbol_countries`: Standardized symbols
+Cleaned, deduplicated, and validated datasets with applied business rules. Data quality checks ensure consistency.
+
+- `silver_alphavantage__stock_prices_daily`: Deduplicated, cleaned stock prices with null handling
+- `silver_brapi__stock_prices_daily`: Standardized Brazilian market prices
+- `silver__symbol_countries`: Validated symbol reference data
+
+**Purpose**: Standardized data foundation for analytics; single source of truth for trusted data.
 
 ### Gold Layer
-- Analytics-ready aggregations and business metrics
+Aggregated, business-ready analytics tables optimized for reporting and decision-making.
+
+**Analytics Tables**:
+- `gold_daily_returns`: Daily return calculations (absolute and percentage) aggregated by symbol
+- `gold_market_indicators__economic`: Economic indicators from Banco Central (interest rates, inflation, exchange rates)
+- `gold_market_performance__aggregated`: Market-wide performance metrics and indices
+
+**Key Metrics & Aggregations**:
+- Daily percentage returns and volatility calculations
+- Market-wide price movements and trends
+- Economic indicators time-series for correlation analysis
+- Symbol-level performance rankings and comparisons
+
+**Purpose**: Enable business stakeholders and analysts to quickly access pre-calculated metrics without complex joins; reduce query latency for reporting tools and dashboards.
 
 ## 🔑 Key Features
 
@@ -96,20 +130,27 @@ dbt test
 ✅ Docker containerization  
 ✅ SQL linting with SQLFluff  
 ✅ Extensible data source framework  
+✅ Automated data quality testing  
+✅ Production-ready medallion architecture  
 
 ## 📝 Development
 
 ```bash
 # Format SQL
-sqlfluff format
+sqlfluff format dbt_project/
 
 # Lint & validate
 sqlfluff lint dbt_project/models/
 
-# Run tests
+# Run data quality tests
 dbt test
+
+# Generate documentation
+dbt docs generate
+dbt docs serve --port 8081
 ```
 
 ## 📮 Contact
 
-Created for demonstration of data engineering best practices.
+Created for demonstration of data engineering best practices in modern analytics platforms.
+
